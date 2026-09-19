@@ -147,23 +147,125 @@
     </div>
 
     <script>
+        // Distâncias aproximadas a partir de Boa Vista
+        const distancias = {
+            'mucajaí': 52,
+            'cantá': 35,
+            'bonfim': 125,
+            'amajari': 156,
+            'alto alegre': 89,
+            'iracema': 93,
+            'caracaraí': 140,
+            'pacaraima': 215,
+            'rorainópolis': 259
+        };
+
+        // Tarifas BATUR (padrão)
+        const batur = {
+            kmRodado: 0.59,
+            diaria: 302.00,
+            meiaDiaria: 151.00
+        };
+
+        // Tarifas Tarcísio
+        const tarcisio = {
+            diariaBV: 1200.00,
+            kmRural: 16.00,
+            kmMunicipios: 16.00
+        };
+
+        function calcularDeslocamento(texto) {
+            const lower = texto.toLowerCase();
+            
+            // Procura por "de [cidade] para [cidade]" ou apenas o destino
+            let origem = 'boa vista';
+            let destino = null;
+            let pernoites = 1;
+            let fornecedor = 'batur';
+            
+            // Identifica destino
+            for (const [cidade, km] of Object.entries(distancias)) {
+                if (lower.includes(cidade)) {
+                    destino = cidade;
+                    break;
+                }
+            }
+            
+            if (!destino) return null;
+            
+            // Identifica número de pernoites
+            const diasMatch = texto.match(/(\d+)\s*(dia|dias)/i);
+            const pernoitesMatch = texto.match(/(\d+)\s*(pernoite|pernoites)/i);
+            
+            if (pernoitesMatch) {
+                pernoites = parseInt(pernoitesMatch[1]);
+            } else if (diasMatch) {
+                // Se tem dias mas não especifica pernoites, assume pernoites = dias - 1
+                const dias = parseInt(diasMatch[1]);
+                pernoites = dias > 1 ? dias - 1 : 1;
+            }
+            
+            // Identifica fornecedor
+            if (lower.includes('tarcísio') || lower.includes('tarcisio')) {
+                fornecedor = 'tarcisio';
+            } else if (lower.includes('real')) {
+                fornecedor = 'real';
+            }
+            
+            // Calcula custos
+            const km = distancias[destino];
+            const kmTotalRodado = km * 2; // Ida + volta
+            
+            let custoKm = 0;
+            let custoDiaria = 0;
+            let detalhes = '';
+            
+            if (fornecedor === 'batur') {
+                custoKm = kmTotalRodado * batur.kmRodado;
+                custoDiaria = pernoites * batur.diaria;
+                detalhes = `
+Cálculo BATUR (Contrato 74.2021):
+• Distância Boa Vista ↔ ${destino}: ${km} km
+• Quilometragem total (ida + volta): ${kmTotalRodado} km × R$ ${batur.kmRodado.toFixed(2)}/km = R$ ${custoKm.toFixed(2)}
+• Diárias do motorista: ${pernoites} pernoite(s) × R$ ${batur.diaria.toFixed(2)} = R$ ${custoDiaria.toFixed(2)}
+• TOTAL ESTIMADO: R$ ${(custoKm + custoDiaria).toFixed(2)}`;
+            } else if (fornecedor === 'tarcisio') {
+                custoKm = kmTotalRodado * tarcisio.kmMunicipios;
+                custoDiaria = pernoites * tarcisio.diariaBV;
+                detalhes = `
+Cálculo Tarcísio (Contrato 090/26):
+• Distância Boa Vista ↔ ${destino}: ${km} km
+• Quilometragem total (ida + volta): ${kmTotalRodado} km × R$ ${tarcisio.kmMunicipios.toFixed(2)}/km = R$ ${custoKm.toFixed(2)}
+• Diárias: ${pernoites} pernoite(s) × R$ ${tarcisio.diariaBV.toFixed(2)} = R$ ${custoDiaria.toFixed(2)}
+• TOTAL ESTIMADO: R$ ${(custoKm + custoDiaria).toFixed(2)}
+• Incluso: Motorista, combustível, seguro e assistência 24h`;
+            }
+            
+            return detalhes;
+        }
+
         const keywords = {
             'solicitar': 'Para solicitar um veículo, dirija-se à Unidade de Administração e Suprimentos (UAS) ou entre em contato com Emanuel Lima ou Fernanda Braga.',
             'veiculo': 'Dispomos de 3 fornecedores: BATUR, Real Empreendimentos e Tarcísio S. Rolim. A disponibilidade depende da demanda.',
             'caronas': 'Consulte a política de caronas com a UAS. Geralmente, viagens de rotina podem ser compartilhadas.',
-            'custo': 'Os custos variam por fornecedor e tipo de deslocamento. Consulte os contratos acima ou fale com a UAS.',
-            'contrato': 'Temos 3 contratos ativos. Qual você gostaria de conhecer melhor?',
             'horario': 'Os horários de saída devem ser confirmados com a UAS. Consulte Emanuel ou Fernanda.',
             'rural': 'Para deslocamentos em zona rural, a tarifa é R$ 16,00/km (Tarcísio) ou conforme contrato específico.',
-            'diaria': 'A diária com Tarcísio é R$ 1.200,00 em Boa Vista, incluindo motorista e combustível.',
-            'batur': 'BATUR: R$ 0,59/km. Diária: R$ 302,00. Melhor para curtas distâncias em Boa Vista.',
+            'batur': 'BATUR: R$ 0,59/km. Diária: R$ 302,00 (com pernoite) / R$ 151,00 (sem pernoite). Melhor para curtas distâncias.',
             'real': 'Real Empreendimentos: Van R$ 9,90/km, Micro R$ 9,25/km, Ônibus R$ 10,29/km.',
-            'tarcisio': 'Tarcísio: R$ 1.200/dia em BV, R$ 16/km em rural e municípios. Inclui motorista e combustível.',
+            'tarcisio': 'Tarcísio: R$ 1.200/dia em BV, R$ 16/km em municípios. Inclui motorista, combustível, seguro e assistência 24h.',
             'default': 'Não encontrei resposta específica. Você pode:\n1. Consultar os contratos acima\n2. Contatar a UAS (Emanuel ou Fernanda)\n3. Fazer outra pergunta'
         };
 
         function getResponse(text) {
             const lower = text.toLowerCase();
+            
+            // Tenta calcular deslocamento primeiro
+            const calculo = calcularDeslocamento(text);
+            if (calculo) {
+                return calculo;
+            }
+            
+            // Se não encontrar cálculo, busca por palavras-chave
             for (const [key, value] of Object.entries(keywords)) {
                 if (key !== 'default' && lower.includes(key)) {
                     return value;
